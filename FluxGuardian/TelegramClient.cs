@@ -16,7 +16,6 @@ public class TelegramClient
         _botToken = botToken;
         _chatId = chatId;
         botClient = new TelegramBotClient(_botToken);
-        StartReceiving();
     }
     
     public async Task SendMessage(string text)
