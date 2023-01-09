@@ -1,3 +1,4 @@
+using System.Text;
 using FluxGuardian.Helpers;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
@@ -26,25 +27,34 @@ public class TelegramClient
     
     public void StartReceiving()
     {
-        botClient.StartReceiving<TelegramHandler>();
+        botClient.StartReceiving<TelegramMessageHandler>();
     }
 }
 
-public class TelegramHandler : IUpdateHandler
+public class TelegramMessageHandler : IUpdateHandler
 {
-    public Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
+    public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
     {
         // Only process Message updates: https://core.telegram.org/bots/api#message
         if (update.Message is not { } message)
-            return Task.CompletedTask;
+            return;
         // Only process text messages
         if (message.Text is not { } messageText)
-            return Task.CompletedTask;
+            return;
         
         var chatId = message.Chat.Id;
         Logger.Log($"Received a '{messageText}' from {message.From.Username} message in chat {chatId}.");
 
-        return Task.CompletedTask;
+        if (messageText.ToLowerInvariant().Equals("status"))
+        {
+            var builder = new StringBuilder();
+            foreach (var lastStatus in NodeGuard.LastStatus)
+            {
+                builder.Append($"node {lastStatus.Key.ToString()} is {lastStatus.Value} " + Environment.NewLine);
+            }
+
+            await botClient.SendTextMessageAsync(chatId, builder.ToString(), replyToMessageId: message.MessageId);
+        }
     }
 
     public Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)

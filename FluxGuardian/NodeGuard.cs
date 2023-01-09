@@ -6,9 +6,11 @@ namespace FluxGuardian;
 
 public static class NodeGuard
 {
-    public static async Task CheckNode(string nodeUrl, TelegramClient telegramClient)
+    public static Dictionary<NodeInfo, string> LastStatus = new ();
+    
+    public static async Task<string> CheckNode(NodeInfo nodeInfo, TelegramClient telegramClient)
     {
-        var client = new FluxApiClient(nodeUrl);
+        var client = new FluxApiClient($"http://{nodeInfo.IP}:{nodeInfo.Port}");
         Response response;
         try
         {
@@ -17,8 +19,9 @@ public static class NodeGuard
         catch (Exception e)
         {
             Console.WriteLine(e);
-            Logger.Log("Node is down");
-            await telegramClient.SendMessage("Node is down");
+            var message = $"node {nodeInfo} is not reachable";
+            Logger.Log(message);
+            await telegramClient.SendMessage(message);
             throw;
         }
         
@@ -26,17 +29,20 @@ public static class NodeGuard
         
         if (response.Status != "success")
         {
-            Logger.Log("Node is down");
-            await telegramClient.SendMessage("Node is down");
-            throw new Exception("Node is down");
+            var message = $"node {nodeInfo} is down";
+            Logger.Log(message);
+            await telegramClient.SendMessage(message);
+            throw new Exception(message);
         }
 
         if (nodeStatus.Status != "CONFIRMED")
         {
-            Logger.Log("node is not confirmed.");
-            await telegramClient.SendMessage("node is not confirmed.");
+            var message = $"node {nodeInfo} is not confirmed";
+            Logger.Log(message);
+            await telegramClient.SendMessage(message);
         }
 
-        Logger.Log($"node status is {nodeStatus.Status}.");
+        Logger.Log($"node {nodeInfo} status is {nodeStatus.Status}.");
+        return nodeStatus.Status;
     }
 }

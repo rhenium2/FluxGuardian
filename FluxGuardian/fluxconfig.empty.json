@@ -1,6 +1,11 @@
 {
-  "node": "",
+  "NodesToWatch": [
+    {
+      "ip": "192.168.1.1",
+      "port": 16127
+    }
+  ],
   "telegramBotToken": "",
-  "telegramChatId": "",
-  "nodeCheckMinutes": 1
+  "telegramChatId": 123456,
+  "checkFrequencyMinutes": 10
 }
