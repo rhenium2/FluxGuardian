@@ -1,16 +1,27 @@
 using FluxGuardian.FluxApi.SDK;
 using FluxGuardian.Helpers;
+using FluxGuardian.Models;
 using Newtonsoft.Json;
 
-namespace FluxGuardian;
+namespace FluxGuardian.Services;
 
 public static class NodeGuard
 {
-    public static Dictionary<NodeInfo, string> LastStatus = new ();
-    
-    public static async Task<string> CheckNode(NodeInfo nodeInfo, TelegramClient telegramClient)
+    public static Dictionary<NodeInfo, NodeCheckInfo> LastStatus = new ();
+
+    public static async Task CheckNodes(NodeInfo[] nodes, TelegramClient telegramClient)
     {
-        var client = new FluxApiClient($"http://{nodeInfo.IP}:{nodeInfo.Port}");
+        foreach (var nodeInfo in nodes)
+        {
+            Logger.Log($"checking {nodeInfo}...");
+            var status = await CheckNode(nodeInfo, telegramClient);
+            LastStatus[nodeInfo] = new NodeCheckInfo { Status = status, DateTime = DateTime.UtcNow };
+        }
+    }
+    
+    private static async Task<string> CheckNode(NodeInfo nodeInfo, TelegramClient telegramClient)
+    {
+        var client = new FluxApiClient(nodeInfo.ToString());
         Response response;
         try
         {

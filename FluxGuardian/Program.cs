@@ -2,6 +2,7 @@
 
 using FluxGuardian;
 using FluxGuardian.Helpers;
+using FluxGuardian.Services;
 using Newtonsoft.Json;
 
 var fluxConfig = JsonConvert.DeserializeObject<FluxConfig>(File.ReadAllText(Directory.GetCurrentDirectory() + "/fluxconfig.json"));
@@ -13,12 +14,7 @@ telegramClient.StartReceiving();
 
 do
 {
-    foreach (var nodeInfo in fluxConfig.NodesToWatch)
-    {
-        Logger.Log($"checking {nodeInfo}...");
-        var status = await NodeGuard.CheckNode(nodeInfo, telegramClient);
-        NodeGuard.LastStatus[nodeInfo] = status;
-    }
+    await NodeGuard.CheckNodes(fluxConfig.NodesToWatch.ToArray(), telegramClient);
     
     Logger.Log($"next check is in {fluxConfig.CheckFrequencyMinutes} minutes");
     Thread.Sleep(TimeSpan.FromMinutes(fluxConfig.CheckFrequencyMinutes));  

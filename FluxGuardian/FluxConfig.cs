@@ -26,6 +26,6 @@ public class NodeInfo
 
     public override string ToString()
     {
-        return $"{IP}:{Port}";
+        return $"http://{IP}:{Port}";
     }
 }

@@ -3,8 +3,9 @@ using FluxGuardian.Helpers;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.ReplyMarkups;
 
-namespace FluxGuardian;
+namespace FluxGuardian.Services;
 
 public class TelegramClient
 {
@@ -45,12 +46,16 @@ public class TelegramMessageHandler : IUpdateHandler
         var chatId = message.Chat.Id;
         Logger.Log($"Received a '{messageText}' from {message.From.Username} message in chat {chatId}.");
 
-        if (messageText.ToLowerInvariant().Equals("status"))
+        if (messageText.ToLowerInvariant().Equals("/start"))
+        {
+           await botClient.SendTextMessageAsync(chatId, "hellow", replyToMessageId: message.MessageId);
+        }
+        if (messageText.ToLowerInvariant().Equals("/status"))
         {
             var builder = new StringBuilder();
             foreach (var lastStatus in NodeGuard.LastStatus)
             {
-                builder.Append($"node {lastStatus.Key.ToString()} is {lastStatus.Value} " + Environment.NewLine);
+                builder.Append($"node {lastStatus.Key.ToString()} last status: {lastStatus.Value.Status} ({lastStatus.Value.DateTime} UTC) " + Environment.NewLine);
             }
 
             await botClient.SendTextMessageAsync(chatId, builder.ToString(), replyToMessageId: message.MessageId);
