@@ -1,3 +1,4 @@
+using FluxGuardian.Data;
 using FluxGuardian.FluxApi.SDK;
 using FluxGuardian.Helpers;
 using FluxGuardian.Models;
@@ -7,21 +8,23 @@ namespace FluxGuardian.Services;
 
 public static class NodeGuard
 {
-    public static Dictionary<NodeInfo, NodeCheckInfo> LastStatus = new ();
+    //public static Dictionary<NodeInfo, NodeCheckInfo> LastStatus = new ();
 
-    public static async Task CheckNodes(NodeInfo[] nodes, TelegramClient telegramClient)
+    public static async Task CheckNodes(User user, TelegramClient telegramClient)
     {
-        foreach (var nodeInfo in nodes)
+        foreach (var node in user.Nodes)
         {
-            Logger.Log($"checking {nodeInfo}...");
-            var status = await CheckNode(nodeInfo, telegramClient);
-            LastStatus[nodeInfo] = new NodeCheckInfo { Status = status, DateTime = DateTime.UtcNow };
+            Logger.Log($"checking {node}...");
+            var status = await CheckNode(user, node, telegramClient);
+            node.LastCheckDateTime = DateTime.UtcNow;
+            node.LastStatus = status;
+            Database.Users.Update(user);
         }
     }
     
-    private static async Task<string> CheckNode(NodeInfo nodeInfo, TelegramClient telegramClient)
+    private static async Task<string> CheckNode(User user, Node node, TelegramClient telegramClient)
     {
-        var client = new FluxApiClient(nodeInfo.ToString());
+        var client = new FluxApiClient(node.ToString());
         Response response;
         try
         {
@@ -30,9 +33,9 @@ public static class NodeGuard
         catch (Exception e)
         {
             Console.WriteLine(e);
-            var message = $"node {nodeInfo} is not reachable";
+            var message = $"node {node} is not reachable";
             Logger.Log(message);
-            await telegramClient.SendMessage(message);
+            await telegramClient.SendMessage(user.TelegramChatId, message);
             throw;
         }
         
@@ -40,20 +43,20 @@ public static class NodeGuard
         
         if (response.Status != "success")
         {
-            var message = $"node {nodeInfo} is down";
+            var message = $"node {node} response is {response.Status}";
             Logger.Log(message);
-            await telegramClient.SendMessage(message);
+            await telegramClient.SendMessage(user.TelegramChatId, message);
             throw new Exception(message);
         }
 
         if (nodeStatus.Status != "CONFIRMED")
         {
-            var message = $"node {nodeInfo} is not confirmed";
+            var message = $"node {node} is not confirmed";
             Logger.Log(message);
-            await telegramClient.SendMessage(message);
+            await telegramClient.SendMessage(user.TelegramChatId, message);
         }
 
-        Logger.Log($"node {nodeInfo} status is {nodeStatus.Status}.");
+        Logger.Log($"node {node} status is {nodeStatus.Status}.");
         return nodeStatus.Status;
     }
 }

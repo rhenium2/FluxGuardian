@@ -13,3 +13,8 @@ a tool to monitor the health of Flux (https://runonflux.io) nodes
 ```shell
   docker run -d --rm --volume $(pwd):/app flux-guardian 
 ```
+
+## Telegram commands
+* start - starts the conversation with the bot
+* addnode - adds a new Flux node
+* status - shows the last status of all Flux nodes
