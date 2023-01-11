@@ -8,8 +8,6 @@ namespace FluxGuardian.Services;
 
 public static class NodeGuard
 {
-    //public static Dictionary<NodeInfo, NodeCheckInfo> LastStatus = new ();
-
     public static async Task CheckNodes(User user, TelegramClient telegramClient)
     {
         foreach (var node in user.Nodes)
@@ -36,7 +34,8 @@ public static class NodeGuard
             var message = $"node {node} is not reachable";
             Logger.Log(message);
             await telegramClient.SendMessage(user.TelegramChatId, message);
-            throw;
+            return "not reachable";
+            //throw;
         }
         
         var nodeStatus = JsonConvert.DeserializeObject<NodeStatusResponse>(response.Data);
@@ -46,7 +45,7 @@ public static class NodeGuard
             var message = $"node {node} response is {response.Status}";
             Logger.Log(message);
             await telegramClient.SendMessage(user.TelegramChatId, message);
-            throw new Exception(message);
+            //throw new Exception(message);
         }
 
         if (nodeStatus.Status != "CONFIRMED")

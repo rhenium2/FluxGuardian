@@ -18,3 +18,5 @@ a tool to monitor the health of Flux (https://runonflux.io) nodes
 * start - starts the conversation with the bot
 * addnode - adds a new Flux node
 * status - shows the last status of all Flux nodes
+* mynodes - shows all nodes added to the bot
+* removeallnodes - removes all nodes added to the bot
