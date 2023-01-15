@@ -6,30 +6,42 @@ using FluxGuardian.Models;
 using FluxGuardian.Services;
 using Newtonsoft.Json;
 
-var fluxConfig = JsonConvert.DeserializeObject<FluxConfig>(File.ReadAllText(Directory.GetCurrentDirectory() + "/fluxconfig.json"));
-Logger.Log("FluxGuardian started. Press CTRL+C to exit...");
-var allUsers = Database.Users.FindAll().ToList();
-foreach (var user in allUsers)
-{
-    Logger.Log($"User {user.TelegramUsername}:{user.TelegramChatId}");
-    foreach (var userNode in user.Nodes)
-    {
-        Logger.Log($"Node {userNode.IP}:{userNode.Port}");
-    }
-    Logger.Log("---");
-}
+namespace FluxGuardian;
 
-var telegramClient = new TelegramClient(fluxConfig.TelegramBotToken);
-telegramClient.StartReceiving();
-
-do
+public class Program
 {
-    var users = Database.Users.FindAll().ToList();
-    foreach (var user in users)
-    {
-        await NodeGuard.CheckNodes(user, telegramClient);
-    }
+    public static FluxConfig? FluxConfig;
     
-    Logger.Log($"next check is in {fluxConfig.CheckFrequencyMinutes} minutes");
-    Thread.Sleep(TimeSpan.FromMinutes(fluxConfig.CheckFrequencyMinutes));  
-} while (true);
+    public static async Task Main(string[] args)
+    {
+        FluxConfig = JsonConvert.DeserializeObject<FluxConfig>(File.ReadAllText(Directory.GetCurrentDirectory() + "/fluxconfig.json"));
+        Logger.Log("FluxGuardian started. Press CTRL+C to exit...");
+        var allUsers = Database.Users.FindAll().ToList();
+        foreach (var user in allUsers)
+        {
+            Logger.Log($"User {user.TelegramUsername}:{user.TelegramChatId}");
+            foreach (var userNode in user.Nodes)
+            {
+                Logger.Log($"Node {userNode.IP}:{userNode.Port}");
+            }
+            Logger.Log("---");
+        }
+
+        var telegramClient = new TelegramClient(FluxConfig.TelegramBotToken);
+        telegramClient.StartReceiving();
+
+        do
+        {
+            await NodeGuard.GetRanks();
+            
+            var users = Database.Users.FindAll().ToList();
+            foreach (var user in users)
+            {
+                await NodeGuard.CheckUserNodes(user, telegramClient);
+            }
+    
+            Logger.Log($"next check is in {FluxConfig.CheckFrequencyMinutes} minutes");
+            Thread.Sleep(TimeSpan.FromMinutes(FluxConfig.CheckFrequencyMinutes));  
+        } while (true);
+    }
+}

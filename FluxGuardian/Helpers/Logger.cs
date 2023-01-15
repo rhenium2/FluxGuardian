@@ -6,4 +6,10 @@ public static class Logger
     {
         Console.WriteLine($"({DateTime.UtcNow} UTC) {message}");
     }
+
+    public static void LogMessage(string message)
+    {
+        var msg = $"({DateTime.UtcNow} UTC) {message}";
+        File.AppendAllLines(Directory.GetCurrentDirectory() + "/allMessages.log", new [] { msg});
+    }
 }

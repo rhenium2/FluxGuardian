@@ -51,4 +51,7 @@ public class NodeStatusResponse
 
     [JsonProperty("amount")]
     public string Amount { get; set; }
+    
+    [JsonProperty("rank")]
+    public int Rank { get; set; }
 }

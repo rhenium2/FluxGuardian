@@ -5,16 +5,22 @@ using Polly;
 
 namespace FluxGuardian.FluxApi.SDK;
 
-public class FluxApiClient
+public class FluxApiClient : IDisposable
 {
     private readonly HttpClient HttpClient;
     private readonly string BaseUri;
 
-    public FluxApiClient(string baseUri)
+    public FluxApiClient()
+    {
+        BaseUri = "https://api.runonflux.io";
+        HttpClient = new HttpClient();
+        HttpClient.Timeout = TimeSpan.FromSeconds(30);
+        HttpClient.DefaultRequestHeaders.Add("User-Agent", "HeliumApi-SDK");
+    }
+    
+    public FluxApiClient(string baseUri) : this()
     {
         BaseUri = baseUri;
-        HttpClient = new HttpClient();
-        HttpClient.DefaultRequestHeaders.Add("User-Agent", "HeliumApi-SDK");
     }
 
     private async Task<HttpResponseMessage> PollyGet(Func<Task<HttpResponseMessage>> func)
@@ -64,5 +70,10 @@ public class FluxApiClient
             Status = result["status"].ToString(),
             Data = result["data"].ToJsonString()
         };
+    }
+
+    public void Dispose()
+    {
+        HttpClient.Dispose();
     }
 }

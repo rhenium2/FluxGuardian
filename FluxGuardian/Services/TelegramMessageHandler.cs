@@ -5,6 +5,7 @@ using FluxGuardian.Models;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.Enums;
 using User = FluxGuardian.Models.User;
 
 namespace FluxGuardian.Services;
@@ -25,8 +26,9 @@ public class TelegramMessageHandler : IUpdateHandler, IMessengerCommands
         var username = message.From.Username;
         var command = messageText.ToLowerInvariant();
         var user = FindUser(message);
-        Logger.Log($"Received a '{messageText}' from {message.From.Username} message in chat {chatId}.");
-
+        Logger.Log($"Received '{messageText}' from {message.From.Username}:{chatId}");
+        Logger.LogMessage($"{message.From.Username}:{message.Chat.Id} {messageText}");
+        
         if (command.StartsWith("/"))
         {
             await HandleCommands(botClient, message, command);
@@ -40,8 +42,8 @@ public class TelegramMessageHandler : IUpdateHandler, IMessengerCommands
     public Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception,
         CancellationToken cancellationToken)
     {
-        Logger.Log($"Received exception {exception.Message}");
-        return Task.FromException(exception);
+        Logger.Log($"Received exception {exception.ToString()}");
+        return Task.CompletedTask;
     }
 
     private async Task HandleCommands(ITelegramBotClient botClient, Message message, string command)
@@ -65,21 +67,64 @@ public class TelegramMessageHandler : IUpdateHandler, IMessengerCommands
             case "/removeallnodes":
                 await HandleRemoveAllNodesCommand(botClient, message);
                 break;
+            case "/admin/users":
+                await HandleAdminUsersCommand(botClient, message);
+                break;
         }
+    }
+
+    private async Task HandleAdminUsersCommand(ITelegramBotClient botClient, Message message)
+    {
+        var chatId = message.Chat.Id;
+        var username = message.From.Username;
+        var user = FindUser(message);
+        if (chatId != Program.FluxConfig.MChatId)
+        {
+            return;
+        }
+        if (user is null)
+        {
+            return;
+        }
+
+        var allUsers = Database.Users.FindAll().ToList();
+        var result = new StringBuilder();
+        result.AppendLine($"there are {allUsers.Count} users");
+        result.AppendLine();
+        foreach (var aUser in allUsers)
+        {
+            result.AppendLine($"{aUser.TelegramUsername}:{aUser.TelegramChatId}:{aUser.ActiveCommand}");
+            foreach (var userNode in aUser.Nodes)
+            {
+                result.AppendLine($"{userNode.IP}:{userNode.Port}");
+            }
+
+            result.AppendLine();
+        }
+
+        await SendMessage(botClient, chatId, result.ToString(), message.MessageId);
     }
 
     public async Task HandleStartCommand(ITelegramBotClient botClient, Message message)
     {
         var chatId = message.Chat.Id;
         var username = message.From.Username;
-        var text = @"Hellow from FluxGuardian bot. 
+        var user = FindUser(message);
+        if (user is not null)
+        {
+            ResetActiveCommand(user);
+            RemoveAllNodes(user);
+        }
+        
+        var text = @"Hellow from FluxGuardian bot 🤖 
 
 This bot checks your flux nodes regularly to make sure they are up, reachable and confirmed. Otherwise it will send a message to you and notifies you. 
 
 Currently, you can add up to 2 nodes. 
 
 This bot is in Beta and is available ""AS IS"" without any warranty of any kind.";
-        await botClient.SendTextMessageAsync(chatId, text, replyToMessageId: message.MessageId);
+        
+        await SendMessage(botClient, chatId, text, message.MessageId);
     }
 
     public async Task HandleMyNodesCommand(ITelegramBotClient botClient, Message message)
@@ -97,7 +142,8 @@ This bot is in Beta and is available ""AS IS"" without any warranty of any kind.
         {
             result += $"{node}" + Environment.NewLine;
         }
-        await botClient.SendTextMessageAsync(chatId, result, replyToMessageId: message.MessageId);
+        
+        await SendMessage(botClient, chatId, result, message.MessageId);
     }
 
     public async Task HandleRemoveAllNodesCommand(ITelegramBotClient botClient, Message message)
@@ -110,10 +156,10 @@ This bot is in Beta and is available ""AS IS"" without any warranty of any kind.
             return;
         }
 
-        user.Nodes.Clear();
-        Database.Users.Update(user);
-        var result = $"{user.Nodes.Count} nodes removed";
-        await botClient.SendTextMessageAsync(chatId, result, replyToMessageId: message.MessageId);
+        RemoveAllNodes(user);
+        var result = $"all nodes removed";
+        
+        await SendMessage(botClient, chatId, result, message.MessageId);
     }
 
     public async Task HandleStatusCommand(ITelegramBotClient botClient, Message message)
@@ -131,15 +177,23 @@ This bot is in Beta and is available ""AS IS"" without any warranty of any kind.
             return;
         }
         
+        // TODO: change to markdown for better read
         var builder = new StringBuilder();
+        builder.AppendLine("* Nodes Status *");
+        builder.AppendLine();
+
         foreach (var node in user.Nodes)
         {
-            builder.Append(
-                $"node {node.ToString()} last status: {node.LastStatus} ({node.LastCheckDateTime} UTC) " +
-                Environment.NewLine);
+            builder.AppendLine($"*{node.ToString()}*");
+            builder.AppendLine($"rank: *{node.Rank}*");
+            builder.AppendLine($"status: *{node.LastStatus}*");
+            builder.AppendLine($"_checked at {node.LastCheckDateTime} UTC_");
+            builder.AppendLine();
         }
 
-        await botClient.SendTextMessageAsync(chatId, builder.ToString(), replyToMessageId: message.MessageId);
+        builder.AppendLine("current UTC time: " + DateTime.UtcNow);
+        
+        await SendMessage(botClient, chatId, builder.ToString(), message.MessageId);
     }
 
     public async Task HandleAddNodeCommand(ITelegramBotClient botClient, Message message)
@@ -150,7 +204,7 @@ This bot is in Beta and is available ""AS IS"" without any warranty of any kind.
 
         if (user.Nodes.Count >= 2)
         {
-            await botClient.SendTextMessageAsync(chatId, "sorry, you have reached the maximum number of nodes");
+            await SendMessage(botClient, chatId, "sorry, you have reached the maximum number of nodes");
             return;
         }
         
@@ -164,7 +218,7 @@ This bot is in Beta and is available ""AS IS"" without any warranty of any kind.
         {
             user.ActiveCommandParams["ip"] = String.Empty;
             Database.Users.Update(user);
-            await botClient.SendTextMessageAsync(chatId, "sure, what is this node IP address?");
+            await SendMessage(botClient, chatId, "sure, what is this node IP address?");
         }
         else if (string.IsNullOrEmpty(user.ActiveCommandParams["ip"]))
         {
@@ -177,7 +231,7 @@ This bot is in Beta and is available ""AS IS"" without any warranty of any kind.
         {
             user.ActiveCommandParams["port"] = String.Empty;
             Database.Users.Update(user);
-            await botClient.SendTextMessageAsync(chatId, "what is this node's API port? (usually 16127)");
+            await SendMessage(botClient, chatId, "what is this node's API port? (usually 16127)");
         }
         else if (!string.IsNullOrEmpty(user.ActiveCommandParams["ip"]) && string.IsNullOrEmpty(user.ActiveCommandParams["port"]))
         {
@@ -194,12 +248,24 @@ This bot is in Beta and is available ""AS IS"" without any warranty of any kind.
                 IP = user.ActiveCommandParams["ip"]!,
                 Port = Convert.ToInt32(user.ActiveCommandParams["port"]!)
             });
-            user.ActiveCommand = null;
-            user.ActiveCommandParams.Clear();
-            Database.Users.Update(user);
             
-            await botClient.SendTextMessageAsync(chatId, "node added");
+            ResetActiveCommand(user);
+
+            await SendMessage(botClient, chatId, "node added");
         }
+    }
+
+    private static void ResetActiveCommand(User user)
+    {
+        user.ActiveCommand = null;
+        user.ActiveCommandParams.Clear();
+        Database.Users.Update(user);
+    }
+
+    private static void RemoveAllNodes(User user)
+    {
+        user.Nodes.Clear();
+        Database.Users.Update(user);
     }
 
     private static User? FindUser(Message message)
@@ -226,6 +292,19 @@ This bot is in Beta and is available ""AS IS"" without any warranty of any kind.
         }
 
         return user;
+    }
+
+    private async Task SendMessage(ITelegramBotClient botClient, long chatId, string message, int? replyToMessageId = null)
+    {
+        try
+        {
+            await botClient.SendTextMessageAsync(chatId, message, replyToMessageId: replyToMessageId, parseMode: ParseMode.Markdown);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            Logger.Log($"Received exception {e}");
+        }
     }
 }
 
