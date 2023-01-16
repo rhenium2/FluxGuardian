@@ -2,19 +2,26 @@ using FluxGuardian.Data;
 using FluxGuardian.FluxApi.SDK;
 using FluxGuardian.Helpers;
 using FluxGuardian.Models;
+using FluxGuardian.Services.Telegram;
 using Newtonsoft.Json;
 
 namespace FluxGuardian.Services;
 
 public static class NodeGuard
 {
-    public static Dictionary<string, int> NodeRanks = new Dictionary<string, int>();
-    public static async Task CheckUserNodes(User user, TelegramClient telegramClient)
+    private static Dictionary<string, int> NodeRanks = new();
+    private static TelegramClient _telegramClient;
+    static NodeGuard()
+    {
+        _telegramClient = new TelegramClient(Program.FluxConfig.TelegramBotToken);
+    }
+
+    public static async Task CheckUserNodes(User user)
     {
         foreach (var node in user.Nodes)
         {
             Logger.Log($"checking {node}...");
-            var status = await CheckNode(user, node, telegramClient);
+            var status = await CheckNode(user, node);
             node.LastCheckDateTime = DateTime.UtcNow;
             node.LastStatus = status;
 
@@ -27,7 +34,7 @@ public static class NodeGuard
         }
     }
     
-    private static async Task<string> CheckNode(User user, Node node, TelegramClient telegramClient)
+    private static async Task<string> CheckNode(User user, Node node)
     {
         using var client = new FluxApiClient(node.ToString());
         Response response;
@@ -40,7 +47,7 @@ public static class NodeGuard
             Console.WriteLine(e);
             var message = $"node {node} is not reachable";
             Logger.Log(message);
-            await telegramClient.SendMessage(user.TelegramChatId, message);
+            _telegramClient.SendMessage(user.TelegramChatId, message);
             return "Not Reachable";
         }
         
@@ -48,7 +55,7 @@ public static class NodeGuard
         {
             var message = $"node {node} response is {response.Status}";
             Logger.Log(message);
-            await telegramClient.SendMessage(user.TelegramChatId, message);
+            _telegramClient.SendMessage(user.TelegramChatId, message);
             return response.Status;
         }
 
@@ -58,7 +65,7 @@ public static class NodeGuard
         {
             var message = $"node {node} is not confirmed";
             Logger.Log(message);
-            await telegramClient.SendMessage(user.TelegramChatId, message);
+            _telegramClient.SendMessage(user.TelegramChatId, message);
         }
 
         Logger.Log($"node {node} status is {nodeStatus}.");

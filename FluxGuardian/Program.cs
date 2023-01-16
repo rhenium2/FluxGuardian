@@ -1,9 +1,9 @@
-﻿// See https://aka.ms/new-console-template for more information
-
-using FluxGuardian.Data;
+﻿using FluxGuardian.Data;
 using FluxGuardian.Helpers;
 using FluxGuardian.Models;
 using FluxGuardian.Services;
+using FluxGuardian.Services.Discord;
+using FluxGuardian.Services.Telegram;
 using Newtonsoft.Json;
 
 namespace FluxGuardian;
@@ -27,9 +27,13 @@ public class Program
             Logger.Log("---");
         }
 
+        var discordService = new DiscordService(FluxConfig.DiscordBotToken);
+        discordService.Start();
+        
         var telegramClient = new TelegramClient(FluxConfig.TelegramBotToken);
-        telegramClient.StartReceiving();
-
+        var telegramCommandHandler = new TelegramCommandHandler(telegramClient);
+        telegramCommandHandler.Init();
+        
         do
         {
             await NodeGuard.GetRanks();
@@ -37,7 +41,7 @@ public class Program
             var users = Database.Users.FindAll().ToList();
             foreach (var user in users)
             {
-                await NodeGuard.CheckUserNodes(user, telegramClient);
+                await NodeGuard.CheckUserNodes(user);
             }
     
             Logger.Log($"next check is in {FluxConfig.CheckFrequencyMinutes} minutes");

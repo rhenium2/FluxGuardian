@@ -11,4 +11,7 @@ public class FluxConfig
     public int CheckFrequencyMinutes { get; set; }
     [JsonProperty("mChatId")]
     public long MChatId { get; set; }
+    
+    [JsonProperty("discordBotToken", Required = Required.Always)]
+    public string DiscordBotToken { get; set; }
 }
