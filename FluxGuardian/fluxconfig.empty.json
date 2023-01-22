@@ -1,4 +1,6 @@
 {
   "telegramBotToken": "",
-  "checkFrequencyMinutes": 10
+  "checkFrequencyMinutes": 10,
+  "mChatId": 0,
+  "discordBotToken": ""
 }

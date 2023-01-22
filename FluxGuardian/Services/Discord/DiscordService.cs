@@ -1,12 +1,14 @@
+using System.Reflection;
 using Discord;
+using Discord.Commands;
 using Discord.WebSocket;
-using FluxGuardian.Data;
 
 namespace FluxGuardian.Services.Discord;
 
 public class DiscordService
 {
     private readonly DiscordSocketClient _client;
+    private readonly CommandService _commandService;
 
     public DiscordService(string token)
     {
@@ -15,26 +17,45 @@ public class DiscordService
         _client.MessageReceived += ClientOnMessageReceived;
         _client.Log += message => Task.Run(() => Console.WriteLine($"log: {message}"));
         _client.LoginAsync(TokenType.Bot, token);
+
+        _commandService = new CommandService();
+        _commandService.AddModuleAsync<CommandModule>(null).Wait();
     }
 
     public void Start()
     {
         _client.StartAsync();
     }
-    
-    private Task ClientOnMessageReceived(SocketMessage arg)
+
+    private async Task ClientOnMessageReceived(SocketMessage arg)
     {
-        if (arg is not SocketUserMessage msg)
-            return Task.CompletedTask;
+        // Don't process the command if it was a system message
+        var message = arg as SocketUserMessage;
+        if (message == null) return;
 
-        // We don't want the bot to respond to itself or other bots.
-        if (msg.Author.Id == _client.CurrentUser.Id || msg.Author.IsBot)
-            return Task.CompletedTask;
+        Console.WriteLine($"message: {message}");
+        // Create a number to track where the prefix ends and the command begins
+        int argPos = 0;
 
-        Console.WriteLine($"message: {msg}");
-        var command = msg.Content;
+        // Determine if the message is a command based on the prefix and make sure no bots trigger commands
+        if (!(message.HasCharPrefix('!', ref argPos) ||
+              message.HasMentionPrefix(_client.CurrentUser, ref argPos)) ||
+            message.Author.IsBot)
+            return;
 
-        var user = FindUser(msg.Author.Username, (long)msg.Author.Id);
+        // Create a WebSocket-based command context based on the message
+        var context = new SocketCommandContext(_client, message);
+
+        // Execute the command with the command context we just
+        // created, along with the service provider for precondition checks.
+        await _commandService.ExecuteAsync(
+            context: context,
+            argPos: argPos,
+            services: null);
+
+        /*var command = msg.Content;
+
+        var user = UserService.FindDiscordUser((long)msg.Author.Id);
         if (command.StartsWith("/"))
         {
             HandleCommands(msg, command);
@@ -44,9 +65,9 @@ public class DiscordService
             HandleCommands(msg, user.ActiveCommand);
         }
         
-        return Task.CompletedTask;
+        return Task.CompletedTask;*/
     }
-    
+
     private void HandleCommands(SocketUserMessage message, string command)
     {
         switch (command)
@@ -61,15 +82,15 @@ public class DiscordService
 
     private void HandleStartCommand(SocketUserMessage message)
     {
-        var chatId = (long) message.Author.Id;
+        var chatId = (long)message.Author.Id;
         var username = message.Author.Username;
-        var user = FindUser(username, chatId);
+        var user = UserService.FindDiscordUser(chatId);
         if (user is not null)
         {
-            ResetActiveCommand(user);
-            RemoveAllNodes(user);
+            UserService.ResetActiveCommand(user);
+            UserService.RemoveAllNodes(user);
         }
-        
+
         var text = @"Hellow from FluxGuardian bot 🤖 
 
 This bot checks your flux nodes regularly to make sure they are up, reachable and confirmed. Otherwise it will send a message to you and notifies you. 
@@ -77,42 +98,7 @@ This bot checks your flux nodes regularly to make sure they are up, reachable an
 Currently, you can add up to 2 nodes. 
 
 This bot is in Beta and is available ""AS IS"" without any warranty of any kind.";
-        
+
         message.Channel.SendMessageAsync(text, messageReference: new MessageReference(message.Id));
-    }
-    
-    private static void ResetActiveCommand(Models.User user)
-    {
-        user.ActiveCommand = null;
-        user.ActiveCommandParams.Clear();
-        Database.Users.Update(user);
-    }
-
-    private static void RemoveAllNodes(Models.User user)
-    {
-        user.Nodes.Clear();
-        Database.Users.Update(user);
-    }
-
-    private static Models.User? FindUser(string username, long id)
-    {
-        var user = Database.Users.FindOne(user => user.DiscordId.Equals(id));
-        return user;
-    }
-
-    private static Models.User CreateUser(string username, long id)
-    {
-        var user = FindUser(username, id);
-        if (user is null)
-        {
-            user = new Models.User
-            {
-                DiscordUsername = username,
-                DiscordId = id,
-            };
-            Database.Users.Insert(user);
-        }
-
-        return user;
     }
 }

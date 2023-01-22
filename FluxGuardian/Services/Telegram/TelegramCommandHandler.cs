@@ -10,6 +10,7 @@ namespace FluxGuardian.Services.Telegram;
 public class TelegramCommandHandler
 {
     private readonly TelegramClient _telegramClient;
+    private const int maximumNodeCount = 4;
     public TelegramCommandHandler(TelegramClient telegramClient)
     {
         _telegramClient = telegramClient;
@@ -36,7 +37,7 @@ public class TelegramCommandHandler
         Logger.Log($"Received '{messageText}' from {message.From.Username}:{chatId}");
         Logger.LogMessage($"{message.From.Username}:{message.Chat.Id} {messageText}");
         
-        var user = FindUser(message);
+        var user = UserService.FindTelegramUser(chatId);
         if (command.StartsWith("/"))
         {
            HandleCommands(message, command);
@@ -77,38 +78,94 @@ public class TelegramCommandHandler
             case "/admin/users":
                 HandleAdminUsersCommand(message);
                 break;
+            case string when command.StartsWith("/admin/deleteuser"):
+                HandleAdminDeleteUserCommand(message);
+                break;
+            case string when command.StartsWith("/admin/sendmessage"):
+                HandleAdminSendMessageCommand(message);
+                break;
+        }
+    }
+
+    private void HandleAdminSendMessageCommand(Message message)
+    {
+        var chatId = message.Chat.Id;
+        var user = UserService.FindTelegramUser(chatId);
+        if (chatId != Program.FluxConfig.MChatId)
+        {
+            return;
+        }
+        if (user is null)
+        {
+            return;
+        }
+
+        var commandItems = message.Text.Trim()
+            .Split(' ', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        
+        var sendingChatId = Convert.ToInt64(commandItems[1].Trim());
+        var sendingMessage = string.Join(' ', commandItems.Skip(2));
+        var sendingUser = UserService.FindTelegramUser(sendingChatId);
+        if (sendingUser is not null)
+        {
+            _telegramClient.SendMessage(sendingChatId, sendingMessage);
+            _telegramClient.SendMessage(chatId, $"message \"{sendingMessage}\" sent to {sendingChatId}");
         }
     }
     
+    private void HandleAdminDeleteUserCommand(Message message)
+    {
+        var chatId = message.Chat.Id;
+        var user = UserService.FindTelegramUser(chatId);
+        if (chatId != Program.FluxConfig.MChatId)
+        {
+            return;
+        }
+        if (user is null)
+        {
+            return;
+        }
+
+        var deletingChatId = Convert.ToInt64(message.Text.Split(' ')[1].Trim());
+        var deletingUser = UserService.FindTelegramUser(deletingChatId);
+        if (deletingUser is not null)
+        {
+            Database.DefaultInstance.Users.Delete(deletingUser.Id);
+            _telegramClient.SendMessage(chatId, "user deleted");
+        }
+    }
+
     public void HandleStartCommand(Message message)
     {
         var chatId = message.Chat.Id;
         var username = message.From.Username;
-        var user = FindUser(message);
+        var user = UserService.FindTelegramUser(chatId);
         if (user is not null)
         {
-            ResetActiveCommand(user);
-            RemoveAllNodes(user);
+            UserService.ResetActiveCommand(user);
+            UserService.RemoveAllNodes(user);
         }
-        
-        var text = @"Hellow from FluxGuardian bot 🤖 
 
-This bot checks your flux nodes regularly to make sure they are up, reachable and confirmed. Otherwise it will send a message to you and notifies you. 
+        var text = new StringBuilder("Hellow from FluxGuardian bot 🤖");
+        text.AppendLine();
+        text.AppendLine("This bot checks your flux nodes regularly to make sure they are up, reachable and confirmed. Otherwise it will send a message to you and notifies you.");
+        text.AppendLine();
+        text.AppendLine($"Currently, you can add up to {maximumNodeCount} nodes.");
+        text.AppendLine();
+        text.AppendLine("This bot is in Beta and is available \"AS IS\" without any warranty of any kind.");
+        text.AppendLine();
+        text.AppendLine("type /addnode to add a new node for me to monitor. At any point if you are stuck, type /start and you can start fresh.");
 
-Currently, you can add up to 2 nodes. 
-
-This bot is in Beta and is available ""AS IS"" without any warranty of any kind.";
-
-        _telegramClient.SendMessage(chatId, text, message.MessageId);
+        _telegramClient.SendMessage(chatId, text.ToString(), message.MessageId);
     }
 
     public void HandleAddNodeCommand(Message message)
     {
         var chatId = message.Chat.Id;
         var username = message.From.Username;
-        var user = FindUser(message) ?? CreateUser(message);
+        var user = UserService.FindTelegramUser(chatId) ?? UserService.CreateTelegramUser(username, chatId);
 
-        if (user.Nodes.Count >= 2)
+        if (user.Nodes.Count >= maximumNodeCount)
         {
             _telegramClient.SendMessage(chatId, "sorry, you have reached the maximum number of nodes");
             return;
@@ -117,47 +174,54 @@ This bot is in Beta and is available ""AS IS"" without any warranty of any kind.
         if (string.IsNullOrEmpty(user.ActiveCommand))
         {
             user.ActiveCommand = message.Text;
-            Database.Users.Update(user);
+            Database.DefaultInstance.Users.Update(user);
         }
 
         if (!user.ActiveCommandParams.ContainsKey("ip"))
         {
             user.ActiveCommandParams["ip"] = String.Empty;
-            Database.Users.Update(user);
+            Database.DefaultInstance.Users.Update(user);
             _telegramClient.SendMessage(chatId, "sure, what is this node IP address?");
         }
         else if (string.IsNullOrEmpty(user.ActiveCommandParams["ip"]))
         {
-            // TODO: validate ip address here
             user.ActiveCommandParams["ip"] = message.Text.Trim();
-            Database.Users.Update(user);
+            Database.DefaultInstance.Users.Update(user);
         }
         
         if (!string.IsNullOrEmpty(user.ActiveCommandParams["ip"]) && !user.ActiveCommandParams.ContainsKey("port"))
         {
             user.ActiveCommandParams["port"] = String.Empty;
-            Database.Users.Update(user);
+            Database.DefaultInstance.Users.Update(user);
             _telegramClient.SendMessage(chatId, "what is this node's API port? (usually 16127)");
         }
         else if (!string.IsNullOrEmpty(user.ActiveCommandParams["ip"]) && string.IsNullOrEmpty(user.ActiveCommandParams["port"]))
         {
-            // TODO: validate port address here
             user.ActiveCommandParams["port"] = message.Text.Trim();
-            Database.Users.Update(user);
+            Database.DefaultInstance.Users.Update(user);
         }
 
         if (user.ActiveCommandParams["ip"] != String.Empty && user.ActiveCommandParams["port"] != String.Empty)
         {
-            user.Nodes.Add(new Node
+            if (Extensions.IsValidFluxPortString(user.ActiveCommandParams["port"]) 
+                && Extensions.IsValidIPString(user.ActiveCommandParams["ip"]))
             {
-                Id = Guid.NewGuid().ToString(),
-                IP = user.ActiveCommandParams["ip"]!,
-                Port = Convert.ToInt32(user.ActiveCommandParams["port"]!)
-            });
+                var newNode = new Node
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    IP = user.ActiveCommandParams["ip"],
+                    Port = Convert.ToInt32(user.ActiveCommandParams["port"])
+                };
+                user.Nodes.Add(newNode);
+                Database.DefaultInstance.Users.Update(user);
+                _telegramClient.SendMessage(chatId, $"node {newNode} added. At any time you ask me about your nodes status with _/status_ command");
+            }
+            else
+            {
+                _telegramClient.SendMessage(chatId, "IP & port don't seem valid to me. Please start again with _/addnode_ command");
+            }
             
-            ResetActiveCommand(user);
-
-            _telegramClient.SendMessage(chatId, "node added");
+            UserService.ResetActiveCommand(user);
         }
     }
 
@@ -165,7 +229,7 @@ This bot is in Beta and is available ""AS IS"" without any warranty of any kind.
     {
         var chatId = message.Chat.Id;
         var username = message.From.Username;
-        var user = FindUser(message);
+        var user = UserService.FindTelegramUser(chatId);
         if (user is null)
         {
             return;
@@ -173,6 +237,7 @@ This bot is in Beta and is available ""AS IS"" without any warranty of any kind.
 
         if (user.Nodes.Count == 0)
         {
+            _telegramClient.SendMessage(chatId, "I don't know any of your nodes yet, please add with _/addnode_ command");
             return;
         }
         
@@ -183,14 +248,14 @@ This bot is in Beta and is available ""AS IS"" without any warranty of any kind.
         foreach (var node in user.Nodes)
         {
             builder.AppendLine($"*{node.ToString()}*");
-            builder.AppendLine($"rank: *{node.Rank}*");
             builder.AppendLine($"status: *{node.LastStatus}*");
             builder.AppendLine($"_checked at {node.LastCheckDateTime} UTC_");
+            builder.AppendLine($"rank: *{node.Rank}*");
+            builder.AppendLine($"_next payment in {TimeSpan.FromMinutes(node.Rank * 2).ToReadableString()}_");
             builder.AppendLine();
         }
 
-        builder.AppendLine("current UTC time: " + DateTime.UtcNow);
-        
+        builder.AppendLine($"{DateTime.UtcNow} UTC");
         _telegramClient.SendMessage(chatId, builder.ToString(), message.MessageId);
     }
 
@@ -198,7 +263,7 @@ This bot is in Beta and is available ""AS IS"" without any warranty of any kind.
     {
         var chatId = message.Chat.Id;
         var username = message.From.Username;
-        var user = FindUser(message);
+        var user = UserService.FindTelegramUser(chatId);
         if (user is null)
         {
             return;
@@ -217,13 +282,13 @@ This bot is in Beta and is available ""AS IS"" without any warranty of any kind.
     {
         var chatId = message.Chat.Id;
         var username = message.From.Username;
-        var user = FindUser(message);
+        var user = UserService.FindTelegramUser(chatId);
         if (user is null)
         {
             return;
         }
 
-        RemoveAllNodes(user);
+        UserService.RemoveAllNodes(user);
         var result = $"all nodes removed";
         
         _telegramClient.SendMessage(chatId, result, message.MessageId);
@@ -233,7 +298,7 @@ This bot is in Beta and is available ""AS IS"" without any warranty of any kind.
     {
         var chatId = message.Chat.Id;
         var username = message.From.Username;
-        var user = FindUser(message);
+        var user = UserService.FindTelegramUser(chatId);
         if (chatId != Program.FluxConfig.MChatId)
         {
             return;
@@ -243,7 +308,7 @@ This bot is in Beta and is available ""AS IS"" without any warranty of any kind.
             return;
         }
 
-        var allUsers = Database.Users.FindAll().ToList();
+        var allUsers = Database.DefaultInstance.Users.FindAll().ToList();
         var result = new StringBuilder();
         result.AppendLine($"there are {allUsers.Count} users");
         result.AppendLine();
@@ -260,44 +325,5 @@ This bot is in Beta and is available ""AS IS"" without any warranty of any kind.
 
         _telegramClient.SendMessage(chatId, result.ToString(), message.MessageId);
     }
-
-    private static void ResetActiveCommand(Models.User user)
-    {
-        user.ActiveCommand = null;
-        user.ActiveCommandParams.Clear();
-        Database.Users.Update(user);
-    }
-
-    private static void RemoveAllNodes(Models.User user)
-    {
-        user.Nodes.Clear();
-        Database.Users.Update(user);
-    }
-
-    private static Models.User? FindUser(Message message)
-    {
-        var chatId = message.Chat.Id;
-        var username = message.From?.Username;
-        var user = Database.Users.FindOne(user => user.TelegramChatId.Equals(chatId));
-        return user;
-    }
-
-    private static Models.User CreateUser(Message message)
-    {
-        var chatId = message.Chat.Id;
-        var username = message.From?.Username;
-        var user = Database.Users.FindOne(user => user.TelegramChatId.Equals(chatId));
-        if (user is null)
-        {
-            user = new Models.User
-            {
-                TelegramUsername = username,
-                TelegramChatId = chatId,
-            };
-            Database.Users.Insert(user);
-        }
-
-        return user;
-    }
-
+    
 }

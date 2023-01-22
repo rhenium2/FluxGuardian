@@ -3,16 +3,34 @@ using LiteDB;
 
 namespace FluxGuardian.Data;
 
-public static class Database
+public class Database : IDisposable
 {
-    private static readonly LiteDatabase _database;
+    private readonly LiteDatabase _database;
+
+    public static readonly Database DefaultInstance;
+    
+    public Database()
+    {
+        _database = new LiteDatabase("data.db");
+        _database.Rebuild();
+        Checkpoint();
+    }
 
     static Database()
     {
-        _database = new LiteDatabase("data.db");
+        DefaultInstance = new Database();
+    }
+    
+    public ILiteCollection<User> Users => _database.GetCollection<User>("users");
+
+    public void Dispose()
+    {
         _database.Checkpoint();
-        _database.Rebuild();
+        _database.Dispose();
     }
 
-    public static ILiteCollection<User> Users => _database.GetCollection<User>("users");
+    public void Checkpoint()
+    {
+        _database.Checkpoint();
+    }
 }

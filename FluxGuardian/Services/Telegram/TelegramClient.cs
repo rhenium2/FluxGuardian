@@ -20,11 +20,13 @@ public class TelegramClient
         {
             _botClient.SendTextMessageAsync(chatId, message, replyToMessageId: replyToMessageId, parseMode: ParseMode.Markdown).Wait();
             Logger.Log($"Sent message '{message}' to chatId: {chatId}");
+            Logger.LogMessage($"Sent message '{message}' to chatId: {chatId}");
         }
         catch (Exception e)
         {
             Console.WriteLine(e);
             Logger.Log($"Received exception {e}");
+            Logger.LogMessage($"Received exception {e}");
         }
     }
     

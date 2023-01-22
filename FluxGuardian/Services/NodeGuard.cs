@@ -30,7 +30,7 @@ public static class NodeGuard
             {
                 node.Rank = NodeRanks[nodeFullIp];
             }
-            Database.Users.Update(user);
+            Database.DefaultInstance.Users.Update(user);
         }
     }
     
