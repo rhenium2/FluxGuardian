@@ -67,38 +67,4 @@ public class DiscordService
         
         return Task.CompletedTask;*/
     }
-
-    private void HandleCommands(SocketUserMessage message, string command)
-    {
-        switch (command)
-        {
-            case "":
-                break;
-            case "/start":
-                HandleStartCommand(message);
-                break;
-        }
-    }
-
-    private void HandleStartCommand(SocketUserMessage message)
-    {
-        var chatId = (long)message.Author.Id;
-        var username = message.Author.Username;
-        var user = UserService.FindDiscordUser(chatId);
-        if (user is not null)
-        {
-            UserService.ResetActiveCommand(user);
-            UserService.RemoveAllNodes(user);
-        }
-
-        var text = @"Hellow from FluxGuardian bot 🤖 
-
-This bot checks your flux nodes regularly to make sure they are up, reachable and confirmed. Otherwise it will send a message to you and notifies you. 
-
-Currently, you can add up to 2 nodes. 
-
-This bot is in Beta and is available ""AS IS"" without any warranty of any kind.";
-
-        message.Channel.SendMessageAsync(text, messageReference: new MessageReference(message.Id));
-    }
 }

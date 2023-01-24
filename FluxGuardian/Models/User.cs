@@ -5,9 +5,8 @@ public class User
     public int Id { get; set; }
     public string TelegramUsername { get; set; }
     public long TelegramChatId { get; set; }
-    public bool TelegramBlocked { get; set; }
     public string DiscordUsername { get; set; }
-    public long DiscordId { get; set; }
+    public ulong DiscordId { get; set; }
     public List<Node> Nodes { get; set; }
     public string? ActiveCommand { get; set; }
     public Dictionary<string, string?> ActiveCommandParams { get; set; }
@@ -16,5 +15,21 @@ public class User
     {
         Nodes = new List<Node>();
         ActiveCommandParams = new Dictionary<string, string?>();
+    }
+
+    public override string ToString()
+    {
+        if (TelegramChatId != 0)
+        {
+            var usernameText = !string.IsNullOrWhiteSpace(TelegramUsername) ? $"({TelegramUsername})" : "";
+            return $"{TelegramChatId}{usernameText}";
+        }
+        if (DiscordId != 0)
+        {
+            var usernameText = !string.IsNullOrWhiteSpace(DiscordUsername) ? $"({DiscordUsername})" : "";
+            return $"{DiscordId}{usernameText}";
+        }
+
+        return base.ToString();
     }
 }

@@ -8,16 +8,30 @@ public class Node
     public int Rank { get; set; }
     public DateTime? LastCheckDateTime { get; set; }
     public string? LastStatus { get; set; }
+    public List<int> ClosedPorts { get; set; }
+    public string Tier { get; set; }
 
-    public string GetIPText()
+    public Node()
     {
-        if (Port == 16127)
-        {
-            return $"{IP}";
-        }
+        ClosedPorts = new List<int>();
+    }
+
+    // public string GetLookupText()
+    // {
+    //     if (Port == Constants.DefaultFluxPort)
+    //     {
+    //         return $"{IP}";
+    //     }
+    //
+    //     var portSet = Constants.FluxPortSets[Port];
+    //     return $"{IP}:{portSet.ApiPort}";
+    // }
+
+    public string ToIPAndPortText()
+    {
         return $"{IP}:{Port}";
     }
-    
+
     public override string ToString()
     {
         return $"http://{IP}:{Port}";

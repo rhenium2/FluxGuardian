@@ -1,16 +1,22 @@
 using System.Text.RegularExpressions;
+using FluxGuardian.FluxApi.SDK;
 
 namespace FluxGuardian.Helpers;
 
 public static class Extensions
 {
+    public static string ToRelativeText(this DateTime dateTime)
+    {
+        return (DateTime.UtcNow - dateTime).ToReadableString() + " ago";
+    }
+
     public static string ToReadableString(this TimeSpan timeSpan)
     {
         if (timeSpan.TotalMilliseconds == 0)
         {
             return string.Empty;
         }
-        
+
         (string unit, int value) = new Dictionary<string, int>
         {
             { "year(s)", (int)(timeSpan.TotalDays / 365.25) }, //https://en.wikipedia.org/wiki/Year#Intercalation
@@ -30,10 +36,12 @@ public static class Extensions
         var fluxApiPorts = new[] { 16127, 16137, 16147, 16157, 16167, 16177, 16187, 16197 };
         return int.TryParse(portText, out var port) && fluxApiPorts.Contains(port);
     }
-    
+
     public static bool IsValidIPString(string ip)
     {
-        var validateIPv4Regex = new Regex("^(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$");
+        var validateIPv4Regex =
+            new Regex(
+                "^(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$");
         return validateIPv4Regex.IsMatch(ip);
     }
 }

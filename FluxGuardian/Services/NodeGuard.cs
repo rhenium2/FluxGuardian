@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using FluxGuardian.Data;
 using FluxGuardian.FluxApi.SDK;
 using FluxGuardian.Helpers;
@@ -9,11 +10,12 @@ namespace FluxGuardian.Services;
 
 public static class NodeGuard
 {
-    private static Dictionary<string, int> NodeRanks = new();
+    private static Dictionary<string, NodeStatusResponse> NodeStatusResponses = new();
     private static TelegramClient _telegramClient;
+
     static NodeGuard()
     {
-        _telegramClient = new TelegramClient(Program.FluxConfig.TelegramBotToken);
+        _telegramClient = new TelegramClient(Program.FluxConfig.TelegramBotConfig.Token);
     }
 
     public static async Task CheckUserNodes(User user)
@@ -21,22 +23,32 @@ public static class NodeGuard
         foreach (var node in user.Nodes)
         {
             Logger.Log($"checking {node}...");
-            var status = await CheckNode(user, node);
-            node.LastCheckDateTime = DateTime.UtcNow;
-            node.LastStatus = status;
+            /// checking ports
+            var (portStatus, closedPorts) = await CheckNodePorts(user, node);
+            node.ClosedPorts = closedPorts;
 
-            var nodeFullIp = node.GetIPText();
-            if (NodeRanks.Any() && NodeRanks.ContainsKey(nodeFullIp))
+            /// checking api status
+            var nodeStatus = await CheckNodeStatus(user, node);
+            node.LastCheckDateTime = DateTime.UtcNow;
+            node.LastStatus = nodeStatus;
+
+            /// checking rank
+            //var nodeFullIp = node.GetLookupText();
+            var key = node.ToIPAndPortText();
+            if (NodeStatusResponses.Any() && NodeStatusResponses.ContainsKey(key))
             {
-                node.Rank = NodeRanks[nodeFullIp];
+                node.Rank = NodeStatusResponses[key].Rank;
+                node.Tier = NodeStatusResponses[key].Tier;
             }
-            Database.DefaultInstance.Users.Update(user);
         }
+
+        Database.DefaultInstance.Users.Update(user);
     }
-    
-    private static async Task<string> CheckNode(User user, Node node)
+
+    private static async Task<string> CheckNodeStatus(User user, Node node)
     {
-        using var client = new FluxApiClient(node.ToString());
+        var nodePortSet = Constants.FluxPortSets[node.Port];
+        using var client = new FluxApiClient($"http://{node.IP}:{nodePortSet.ApiPort}");
         Response response;
         try
         {
@@ -45,15 +57,15 @@ public static class NodeGuard
         catch (Exception e)
         {
             Console.WriteLine(e);
-            var message = $"node {node} is not reachable";
+            var message = "Problem!\n" + $"node {node} is not reachable";
             Logger.Log(message);
             _telegramClient.SendMessage(user.TelegramChatId, message);
             return "Not Reachable";
         }
-        
+
         if (!response.Status.ToLowerInvariant().Equals("success"))
         {
-            var message = $"node {node} response is {response.Status}";
+            var message = "Problem!\n" + $"node {node} API response is {response.Status}";
             Logger.Log(message);
             _telegramClient.SendMessage(user.TelegramChatId, message);
             return response.Status;
@@ -63,7 +75,7 @@ public static class NodeGuard
         var nodeStatus = nodeStatusResponse.Status;
         if (!nodeStatus.ToLowerInvariant().Equals("confirmed"))
         {
-            var message = $"node {node} is not confirmed";
+            var message = "Problem!\n" + $"node {node} is not confirmed";
             Logger.Log(message);
             _telegramClient.SendMessage(user.TelegramChatId, message);
         }
@@ -72,9 +84,26 @@ public static class NodeGuard
         return nodeStatus;
     }
 
-    public static async Task GetRanks()
+    private static async Task<(bool, List<int>)> CheckNodePorts(User user, Node node)
     {
-        Logger.Log($"getting all node ranks ...");
+        var nodePortSet = Constants.FluxPortSets[node.Port];
+
+        var (portSetReachable, unreachablePorts) = NodeService.CheckPortSet(node, nodePortSet);
+
+        if (!portSetReachable)
+        {
+            var message = "Problem!\n" +
+                          $"Port(s) {string.Join(",", unreachablePorts.ToArray())} is not open for node {node}";
+            Logger.Log(message);
+            _telegramClient.SendMessage(user.TelegramChatId, message);
+        }
+
+        return (portSetReachable, unreachablePorts);
+    }
+
+    public static async Task FetchAllNodeStatuses()
+    {
+        Logger.Log($"getting all node statuses ...");
 
         using var client = new FluxApiClient();
         Response response;
@@ -88,26 +117,28 @@ public static class NodeGuard
             Logger.LogMessage(e.ToString());
             return;
         }
-        
+
         var nodeStatusResponses = JsonConvert.DeserializeObject<NodeStatusResponse[]>(response.Data);
-        NodeRanks.Clear();
+        NodeStatusResponses.Clear();
         foreach (var nodeStatusResponse in nodeStatusResponses)
         {
             if (string.IsNullOrWhiteSpace(nodeStatusResponse.Ip))
             {
                 continue;
             }
-            
-            if (!NodeRanks.ContainsKey(nodeStatusResponse.Ip))
+
+            var portSet = NodeService.FindPortSetByIp(nodeStatusResponse.Ip);
+            var key = $"{nodeStatusResponse.Ip.Split(':')[0]}:{portSet.Key}";
+
+            if (!NodeStatusResponses.ContainsKey(key))
             {
-                NodeRanks.Add(nodeStatusResponse.Ip, nodeStatusResponse.Rank);
+                NodeStatusResponses.Add(key, nodeStatusResponse);
             }
             else
             {
-                
             }
         }
-        
+
         Logger.Log($"done.");
     }
 }

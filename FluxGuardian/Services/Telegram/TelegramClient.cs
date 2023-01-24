@@ -16,9 +16,15 @@ public class TelegramClient
 
     public void SendMessage(long chatId, string message, int? replyToMessageId = null)
     {
+        if (chatId <= 0 || string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
         try
         {
-            _botClient.SendTextMessageAsync(chatId, message, replyToMessageId: replyToMessageId, parseMode: ParseMode.Markdown).Wait();
+            _botClient.SendTextMessageAsync(chatId, message, replyToMessageId: replyToMessageId,
+                parseMode: ParseMode.Markdown).Wait();
             Logger.Log($"Sent message '{message}' to chatId: {chatId}");
             Logger.LogMessage($"Sent message '{message}' to chatId: {chatId}");
         }
@@ -29,8 +35,9 @@ public class TelegramClient
             Logger.LogMessage($"Received exception {e}");
         }
     }
-    
-    public void StartReceiving(Action<ITelegramBotClient, Update, CancellationToken> updateHandler, Action<ITelegramBotClient, Exception, CancellationToken> errorHandler)
+
+    public void StartReceiving(Action<ITelegramBotClient, Update, CancellationToken> updateHandler,
+        Action<ITelegramBotClient, Exception, CancellationToken> errorHandler)
     {
         _botClient.StartReceiving(updateHandler, errorHandler);
     }

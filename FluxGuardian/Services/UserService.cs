@@ -1,40 +1,42 @@
 using FluxGuardian.Data;
+using FluxGuardian.Helpers;
+using FluxGuardian.Models;
 
 namespace FluxGuardian.Services;
 
 public static class UserService
 {
-    public static void ResetActiveCommand(Models.User user)
+    public static void ResetActiveCommand(User user)
     {
         user.ActiveCommand = null;
         user.ActiveCommandParams.Clear();
         Database.DefaultInstance.Users.Update(user);
     }
 
-    public static void RemoveAllNodes(Models.User user)
+    public static void RemoveAllNodes(User user)
     {
         user.Nodes.Clear();
         Database.DefaultInstance.Users.Update(user);
     }
 
-    public static Models.User? FindDiscordUser(long id)
+    public static User? FindDiscordUser(ulong id)
     {
         var user = Database.DefaultInstance.Users.FindOne(user => user.DiscordId.Equals(id));
         return user;
     }
-    
-    public static Models.User? FindTelegramUser(long id)
+
+    public static User? FindTelegramUser(long id)
     {
         var user = Database.DefaultInstance.Users.FindOne(user => user.TelegramChatId.Equals(id));
         return user;
     }
 
-    public static Models.User CreateTelegramUser(string username, long id)
+    public static User CreateTelegramUser(string username, long id)
     {
         var user = FindTelegramUser(id);
         if (user is null)
         {
-            user = new Models.User
+            user = new User
             {
                 TelegramUsername = username,
                 TelegramChatId = id,
@@ -44,13 +46,13 @@ public static class UserService
 
         return user;
     }
-    
-    public static Models.User CreateDiscordUser(string username, long id)
+
+    public static User CreateDiscordUser(string username, ulong id)
     {
-        var user = FindTelegramUser(id);
+        var user = FindDiscordUser(id);
         if (user is null)
         {
-            user = new Models.User
+            user = new User
             {
                 DiscordUsername = username,
                 DiscordId = id,
@@ -59,5 +61,23 @@ public static class UserService
         }
 
         return user;
+    }
+
+    public static Node AddNode(User user, string ip, int port)
+    {
+        if (user.Nodes.Count >= Constants.MaximumNodeCount)
+        {
+            throw new Exception("sorry, you have reached the maximum number of nodes");
+        }
+
+        var newNode = new Node
+        {
+            Id = Guid.NewGuid().ToString(),
+            IP = ip,
+            Port = port
+        };
+        user.Nodes.Add(newNode);
+        Database.DefaultInstance.Users.Update(user);
+        return newNode;
     }
 }
