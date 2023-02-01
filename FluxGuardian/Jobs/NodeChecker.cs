@@ -11,7 +11,7 @@ public static class NodeChecker
         foreach (var node in user.Nodes)
         {
             Logger.LogOutput($"checking {node}...");
-            Notifier.NotifyUser(user, $"checking {node}...");
+
             /// checking ports
             var nodePortSet = NodeService.FindPortSet(node.Port);
             var (portStatus, closedPorts) = NodeService.CheckPortSet(node, nodePortSet);

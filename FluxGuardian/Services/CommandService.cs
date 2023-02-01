@@ -164,7 +164,7 @@ public static class CommandService
             builder.AppendLine();
         }
 
-        builder.AppendLine($"{DateTime.UtcNow} UTC");
+        builder.AppendLine("FluxGuardian bot 🤖");
         SendMessage(context, builder.ToString());
     }
 
