@@ -1,3 +1,5 @@
+using FluxGuardian.Services;
+
 namespace FluxGuardian.Models;
 
 public class Node
@@ -7,7 +9,7 @@ public class Node
     public int Port { get; set; }
     public int Rank { get; set; }
     public DateTime? LastCheckDateTime { get; set; }
-    public string? LastStatus { get; set; }
+    public NodeStatus? LastStatus { get; set; }
     public List<int> ClosedPorts { get; set; }
     public string Tier { get; set; }
 

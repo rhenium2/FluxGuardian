@@ -1,10 +1,9 @@
-# FluxGuardian
-A tool to monitor the health of Flux (https://runonflux.io) nodes.
+# FluxGuardian [![Try it on telegram](https://img.shields.io/badge/try%20it-on%20telegram-0088cc.svg)](https://t.me/FluxGuardianBot)
+FluxGuardian is a tool to monitor the health of Web3 Flux nodes. It is available for public use as a Telegram bot called @FluxGuardianBot (https://t.me/FluxGuardianBot)
 
-If is available on Telegram at @FluxGuardianBot (https://t.me/FluxGuardianBot). 
 It regularly checks the health of Flux nodes and notifies you back in case they are not up and confirmed. 
 Send a message to it on Telegram and use ‘/start’ and then use ‘/addnode’ command.
-If at anytime if you are stuck, just type ‘/start’ and you can start all over fresh.
+at anytime if you are stuck, just type ‘/start’ and you can start all over fresh.
 
 ## Get Started
 1. Build docker image
@@ -22,6 +21,6 @@ If at anytime if you are stuck, just type ‘/start’ and you can start all ove
 ## Telegram commands
 * start - starts the conversation with the bot
 * addnode - adds a new Flux node
-* status - shows the last status of all Flux nodes
+* status - shows the last status of all your Flux nodes
 * mynodes - shows all nodes added to the bot
 * removeallnodes - removes all nodes added to the bot

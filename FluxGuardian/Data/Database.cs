@@ -45,7 +45,7 @@ public class Database : IDisposable
 
     private void RunAllMigrations()
     {
-        // Data migration #1
+        // Data migration from 0 to 1
         if (_database.UserVersion == 0)
         {
             var allUsers = Users.FindAll().ToList();
@@ -65,6 +65,34 @@ public class Database : IDisposable
             _database.Commit();
 
             _database.UserVersion = 1;
+        }
+
+        // Data migration from 1 to 2
+        if (_database.UserVersion == 1)
+        {
+            _database.BeginTrans();
+
+            Users.UpdateMany(
+                u => new User
+                {
+                    Nodes = u.Nodes.Select(x => new Node
+                    {
+                        Id = x.Id,
+                        LastStatus = NodeStatus.Unknown,
+                        Port = x.Port,
+                        ClosedPorts = x.ClosedPorts,
+                        Rank = x.Rank,
+                        Tier = x.Tier,
+                        IP = x.IP,
+                        LastCheckDateTime = x.LastCheckDateTime
+                    }).ToList()
+                },
+                user => user.Id > 0);
+
+            var allUsers = Users.FindAll().ToList();
+
+            _database.Commit();
+            _database.UserVersion = 2;
         }
     }
 }

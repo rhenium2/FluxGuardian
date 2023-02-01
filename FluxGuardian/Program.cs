@@ -12,39 +12,40 @@ namespace FluxGuardian;
 public class Program
 {
     public static FluxConfig? FluxConfig;
+    public static DiscordClient DiscordClient;
+    public static TelegramClient TelegramClient;
 
     public static async Task Main(string[] args)
     {
         FluxConfig =
             JsonConvert.DeserializeObject<FluxConfig>(
                 File.ReadAllText(Directory.GetCurrentDirectory() + "/fluxconfig.json"));
-        Logger.Log(
+        Logger.LogOutput(
             $"FluxGuardian v{Assembly.GetExecutingAssembly().GetName().Version.ToString()} started. Press CTRL+C to exit...");
 
         if (FluxConfig.DiscordBotConfig is not null)
         {
-            var discordService = new DiscordService(FluxConfig.DiscordBotConfig.Token);
-            discordService.Start();
+            DiscordClient = new DiscordClient(FluxConfig.DiscordBotConfig.Token);
+            DiscordClient.Init();
         }
 
         if (FluxConfig.TelegramBotConfig is not null)
         {
-            var telegramClient = new TelegramClient(FluxConfig.TelegramBotConfig.Token);
-            var telegramCommandHandler = new TelegramCommandHandler(telegramClient);
-            telegramCommandHandler.Init();
+            TelegramClient = new TelegramClient(FluxConfig.TelegramBotConfig.Token);
+            TelegramClient.Init();
         }
 
         do
         {
-            await NodeGuard.FetchAllNodeStatuses();
+            await NodeService.FetchAllNodeStatuses();
 
             var users = Database.DefaultInstance.Users.FindAll().ToList();
             foreach (var user in users)
             {
-                await NodeGuard.CheckUserNodes(user);
+                await NodeChecker.CheckUserNodes(user);
             }
 
-            Logger.Log($"next check is in {FluxConfig.CheckFrequencyMinutes} minutes");
+            Logger.LogOutput($"next check is in {FluxConfig.CheckFrequencyMinutes} minutes");
             Thread.Sleep(TimeSpan.FromMinutes(FluxConfig.CheckFrequencyMinutes));
         } while (true);
     }

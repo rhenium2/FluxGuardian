@@ -19,15 +19,52 @@ public static class UserService
         Database.DefaultInstance.Users.Update(user);
     }
 
+    public static User? FindOrCreateUser(CommandContext context)
+    {
+        var user = FindUser(context);
+        if (user is null)
+        {
+            if (context.ContextKind == ContextKind.Telegram)
+            {
+                user = CreateTelegramUser(context.Username, Convert.ToInt64(context.UserId));
+            }
+
+            if (context.ContextKind == ContextKind.Discord)
+            {
+                user = CreateDiscordUser(context.Username, Convert.ToUInt64(context.UserId));
+            }
+        }
+
+        return user;
+    }
+
+    public static User? FindUser(CommandContext context)
+    {
+        if (context.ContextKind == ContextKind.Telegram)
+            return FindTelegramUser(Convert.ToInt64(context.UserId));
+        if (context.ContextKind == ContextKind.Discord)
+            return FindDiscordUser(Convert.ToUInt64(context.UserId));
+
+        return null;
+    }
+
     public static User? FindDiscordUser(ulong id)
     {
-        var user = Database.DefaultInstance.Users.FindOne(user => user.DiscordId.Equals(id));
-        return user;
+        try
+        {
+            var user = Database.DefaultInstance.Users.FindOne(user => user.DiscordId == id);
+            return user;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
     }
 
     public static User? FindTelegramUser(long id)
     {
-        var user = Database.DefaultInstance.Users.FindOne(user => user.TelegramChatId.Equals(id));
+        var user = Database.DefaultInstance.Users.FindOne(user => user.TelegramChatId == id);
         return user;
     }
 

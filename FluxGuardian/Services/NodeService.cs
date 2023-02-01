@@ -7,17 +7,27 @@ using Newtonsoft.Json;
 
 namespace FluxGuardian.Services;
 
+public enum NodeStatus
+{
+    Unknown,
+    NotReachable,
+    Error,
+    Confirmed
+}
+
 public static class NodeService
 {
-    public static Node CreateNode(string ip, int port)
+    private static Dictionary<string, NodeStatusResponse> NodeStatusResponses = new();
+
+    public static List<FluxPortSet> GetUserNodePortSets(User user)
     {
-        var newNode = new Node
+        var result = new List<FluxPortSet>();
+        foreach (var node in user.Nodes)
         {
-            Id = Guid.NewGuid().ToString(),
-            IP = ip,
-            Port = port
-        };
-        return newNode;
+            result.Add(FindPortSet(node.Port));
+        }
+
+        return result;
     }
 
     public static List<FluxPortSet> FindActivePortSets(string ip)
@@ -59,7 +69,7 @@ public static class NodeService
     public static (bool, List<int>) CheckPortSet(string ip, FluxPortSet portSet)
     {
         var unreachablePorts = new ConcurrentBag<int>();
-        Logger.Log($"checking portset {portSet} for {ip}");
+        Logger.LogOutput($"checking portset {portSet} for {ip}");
 
         Parallel.ForEach(portSet.GetAllPorts(), port =>
         {
@@ -92,8 +102,58 @@ public static class NodeService
         return canConnect;
     }
 
-    // TODO: finish this refactoring
-    private static string GetNodeStatus(Node node)
+    public static NodeStatusResponse? GetNodeListing(string ipPort)
+    {
+        if (NodeStatusResponses.Any() && NodeStatusResponses.ContainsKey(ipPort))
+        {
+            return NodeStatusResponses[ipPort];
+        }
+
+        return null;
+    }
+
+    public static async Task FetchAllNodeStatuses()
+    {
+        Logger.LogOutput($"getting all node statuses ...");
+
+        using var client = new FluxApiClient();
+        Response response;
+        try
+        {
+            response = await client.Get("/daemon/viewdeterministiczelnodelist");
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            Logger.LogMessage(e.ToString());
+            return;
+        }
+
+        var nodeStatusResponses = JsonConvert.DeserializeObject<NodeStatusResponse[]>(response.Data);
+        NodeStatusResponses.Clear();
+        foreach (var nodeStatusResponse in nodeStatusResponses)
+        {
+            if (string.IsNullOrWhiteSpace(nodeStatusResponse.Ip))
+            {
+                continue;
+            }
+
+            var portSet = NodeService.FindPortSetByIp(nodeStatusResponse.Ip);
+            var key = $"{nodeStatusResponse.Ip.Split(':')[0]}:{portSet.Key}";
+
+            if (!NodeStatusResponses.ContainsKey(key))
+            {
+                NodeStatusResponses.Add(key, nodeStatusResponse);
+            }
+            else
+            {
+            }
+        }
+
+        Logger.LogOutput($"done.");
+    }
+
+    public static NodeStatus GetNodeStatus(Node node)
     {
         var nodePortSet = Constants.FluxPortSets[node.Port];
         using var client = new FluxApiClient($"http://{node.IP}:{nodePortSet.ApiPort}");
@@ -106,26 +166,26 @@ public static class NodeService
         {
             Console.WriteLine(e);
             var message = $"node {node} is not reachable";
-            Logger.Log(message);
-            return "Not Reachable";
+            Logger.LogOutput(message);
+            return NodeStatus.NotReachable;
         }
 
         if (!response.Status.ToLowerInvariant().Equals("success"))
         {
             var message = $"node {node} API response is {response.Status}";
-            Logger.Log(message);
-            return response.Status;
+            Logger.LogOutput(message);
+            return NodeStatus.Error;
         }
 
         var nodeStatusResponse = JsonConvert.DeserializeObject<NodeStatusResponse>(response.Data);
         var nodeStatus = nodeStatusResponse.Status;
-        if (!nodeStatus.ToLowerInvariant().Equals("confirmed"))
+        Logger.LogOutput($"node {node} status is {nodeStatus}.");
+
+        if (nodeStatus.ToLowerInvariant().Equals("confirmed"))
         {
-            var message = $"node {node} is not confirmed";
-            Logger.Log(message);
+            return NodeStatus.Confirmed;
         }
 
-        Logger.Log($"node {node} status is {nodeStatus}.");
-        return nodeStatus;
+        return NodeStatus.Error;
     }
 }

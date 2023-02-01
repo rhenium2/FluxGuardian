@@ -17,6 +17,21 @@ public class User
         ActiveCommandParams = new Dictionary<string, string?>();
     }
 
+    public ContextKind GetUserContextKind()
+    {
+        if (TelegramChatId != 0)
+        {
+            return ContextKind.Telegram;
+        }
+
+        if (DiscordId != 0)
+        {
+            return ContextKind.Discord;
+        }
+
+        throw new Exception("UserContextKind is not available");
+    }
+
     public override string ToString()
     {
         if (TelegramChatId != 0)
@@ -24,6 +39,7 @@ public class User
             var usernameText = !string.IsNullOrWhiteSpace(TelegramUsername) ? $"({TelegramUsername})" : "";
             return $"{TelegramChatId}{usernameText}";
         }
+
         if (DiscordId != 0)
         {
             var usernameText = !string.IsNullOrWhiteSpace(DiscordUsername) ? $"({DiscordUsername})" : "";

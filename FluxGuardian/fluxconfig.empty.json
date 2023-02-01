@@ -1,6 +1,10 @@
 {
-  "telegramBotToken": "",
-  "checkFrequencyMinutes": 10,
-  "mChatId": 0,
-  "discordBotToken": ""
+  "telegramBotConfig": {
+    "token": "",
+    "moderatorChatId": 0
+  },
+  "checkFrequencyMinutes": 5,
+  "discordBotConfig": {
+    "token": ""
+  }
 }
