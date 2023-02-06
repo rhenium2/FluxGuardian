@@ -24,4 +24,8 @@
         </None>
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\FluxApi.SDK\FluxApi.SDK.csproj" />
+    </ItemGroup>
+
 </Project>

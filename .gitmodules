@@ -1,0 +1,3 @@
+[submodule "FluxApi.SDK"]
+	path = FluxApi.SDK
+	url = https://github.com/rhenium2/FluxApi.SDK.git
