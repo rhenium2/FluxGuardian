@@ -1,12 +1,10 @@
-using FluxGuardian.FluxApi.SDK;
+using FluxApi.SDK;
 
 namespace FluxGuardian.Helpers;
 
 public class Constants
 {
     public const int MaximumNodeCount = 4;
-
-    //public static int[] FluxApiPorts = new[] { 16127, 16137, 16147, 16157, 16167, 16177, 16187, 16197 };
 
     public static FluxPortSet DefaultPortSet = new FluxPortSet(16126, 16127, 16129);
 

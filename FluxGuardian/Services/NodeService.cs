@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net.Sockets;
-using FluxGuardian.FluxApi.SDK;
+using FluxApi.SDK;
 using FluxGuardian.Helpers;
 using FluxGuardian.Models;
 using Newtonsoft.Json;
