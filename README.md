@@ -19,7 +19,7 @@ at anytime if you are stuck, just type ‘/start’ and you can start all over f
 
 3. Run docker container
 ```shell
-  docker run -d --rm --volume $(pwd):/app flux-guardian 
+  docker run -d --rm --volume $(pwd):/app --name fg flux-guardian 
 ```
 
 ## Telegram commands

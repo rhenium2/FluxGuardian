@@ -12,6 +12,7 @@ public class Node
     public NodeStatus? LastStatus { get; set; }
     public List<int> ClosedPorts { get; set; }
     public string Tier { get; set; }
+    public string FluxVersion { get; set; }
 
     public Node()
     {

@@ -150,6 +150,7 @@ public static class CommandService
             var nodeIcon = node.LastStatus == NodeStatus.Confirmed && !node.ClosedPorts.Any() ? "🟢" : "🔴";
             builder.AppendLine($"{nodeIcon} *{node.ToIPAndPortText()}*");
             builder.AppendLine($"status: *{node.LastStatus}* ({node.LastCheckDateTime?.ToRelativeText()})");
+            builder.AppendLine($"version: v{node.FluxVersion}");
             if (node.ClosedPorts.Any())
             {
                 builder.AppendLine($"ports: {string.Join(", ", node.ClosedPorts)} are closed");

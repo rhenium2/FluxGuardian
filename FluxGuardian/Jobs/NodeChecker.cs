@@ -22,6 +22,10 @@ public static class NodeChecker
             node.LastCheckDateTime = DateTime.UtcNow;
             node.LastStatus = nodeStatus;
 
+            /// check node version
+            var nodeVersion = NodeService.GetNodeVersion(node);
+            node.FluxVersion = nodeVersion;
+
             /// checking rank
             var key = node.ToIPAndPortText();
             var nodeListing = NodeService.GetNodeListing(key);

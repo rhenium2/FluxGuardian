@@ -188,4 +188,31 @@ public static class NodeService
 
         return NodeStatus.Error;
     }
+
+    public static string? GetNodeVersion(Node node)
+    {
+        var nodePortSet = Constants.FluxPortSets[node.Port];
+        using var client = new FluxApiClient($"http://{node.IP}:{nodePortSet.ApiPort}");
+        Response response;
+        try
+        {
+            response = client.Get("/flux/version").Result;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            var message = $"node {node} is not reachable";
+            Logger.LogOutput(message);
+            return null;
+        }
+
+        if (!response.Status.ToLowerInvariant().Equals("success"))
+        {
+            var message = $"node {node} API response is {response.Status}";
+            Logger.LogOutput(message);
+            return null;
+        }
+
+        return response.Data.Replace("\"", "");
+    }
 }
