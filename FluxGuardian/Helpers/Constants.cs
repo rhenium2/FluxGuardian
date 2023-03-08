@@ -4,7 +4,7 @@ namespace FluxGuardian.Helpers;
 
 public class Constants
 {
-    public const int MaximumNodeCount = 4;
+    public const int MaximumNodeCount = 5;
 
     public static FluxPortSet DefaultPortSet = new FluxPortSet(16126, 16127, 16129);
 

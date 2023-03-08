@@ -101,13 +101,23 @@ public static class CommandService
                     {
                         foreach (var activePortSet in newPortSets)
                         {
-                            var newNode = UserService.AddNode(user, nodeIp, activePortSet.Key);
+                            try
+                            {
+                                var newNode = UserService.AddNode(user, nodeIp, activePortSet.Key);
 
-                            SendMessage(context,
-                                message: "Success!\n" +
-                                         $"Found a Flux node on ports {activePortSet}\n" +
-                                         $"I saved {newNode.ToIPAndPortText()} successfully.\n" +
-                                         $"At any time you can ask me about all your nodes status with _{CommandNotation(context, "status")}_ command");
+                                SendMessage(context,
+                                    message: "Success!\n" +
+                                             $"Found a Flux node on ports {activePortSet}\n" +
+                                             $"I saved {newNode.ToIPAndPortText()} successfully.\n" +
+                                             $"At any time you can ask me about all your nodes status with _{CommandNotation(context, "status")}_ command");
+                            }
+                            catch (Exception e)
+                            {
+                                Logger.LogOutput($"Received exception {e.ToString()}");
+                                SendMessage(context,
+                                    message: $"I could NOT save Flux node on ports {activePortSet}\n" +
+                                             $"Most common reason is you have reached the maximum number of nodes, which is currently {Constants.MaximumNodeCount} nodes.\n");
+                            }
                         }
 
                         NodeChecker.CheckUserNodes(user);
