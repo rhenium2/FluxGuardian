@@ -87,6 +87,9 @@ public class TelegramClient
             case string when command.StartsWith("/admin/broadcastmessage"):
                 CommandService.HandleAdminBroadcastMessageCommand(commandContext);
                 break;
+            case string when command.StartsWith("/admin/addnode"):
+                CommandService.HandleAdminAddNodeCommand(commandContext);
+                break;
         }
     }
 

@@ -10,6 +10,7 @@ public class Node
     public int Rank { get; set; }
     public DateTime? LastCheckDateTime { get; set; }
     public NodeStatus? LastStatus { get; set; }
+    public DateTime? LastStatusDateTime { get; set; }
     public List<int> ClosedPorts { get; set; }
     public string Tier { get; set; }
     public string FluxVersion { get; set; }

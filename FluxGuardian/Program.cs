@@ -45,7 +45,8 @@ public class Program
                 await NodeChecker.CheckUserNodes(user);
             }
 
-            Logger.LogOutput($"next check is in {FluxConfig.CheckFrequencyMinutes} minutes");
+            Logger.LogOutput(
+                $"next check is in {FluxConfig.CheckFrequencyMinutes} minutes ({DateTime.UtcNow.AddMinutes(FluxConfig.CheckFrequencyMinutes)} UTC)");
             Thread.Sleep(TimeSpan.FromMinutes(FluxConfig.CheckFrequencyMinutes));
         } while (true);
     }

@@ -94,5 +94,26 @@ public class Database : IDisposable
             _database.Commit();
             _database.UserVersion = 2;
         }
+
+        // Data migration from 2 to 3
+        if (_database.UserVersion == 2)
+        {
+            var allUsers = Users.FindAll().ToList();
+
+            _database.BeginTrans();
+            foreach (var user in allUsers)
+            {
+                foreach (var node in user.Nodes)
+                {
+                    node.LastStatusDateTime ??= node.LastCheckDateTime;
+                }
+
+                Users.Update(user);
+            }
+
+            _database.Commit();
+
+            _database.UserVersion = 3;
+        }
     }
 }

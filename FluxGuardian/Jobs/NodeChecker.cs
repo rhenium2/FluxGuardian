@@ -10,8 +10,13 @@ public static class NodeChecker
     {
         foreach (var node in user.Nodes)
         {
-            Logger.LogOutput($"checking {node}...");
+            if (ShouldSkipNodeCheck(node))
+            {
+                Logger.LogOutput($"skipping node {node}");
+                continue;
+            }
 
+            Logger.LogOutput($"checking {node}...");
             /// checking ports
             var nodePortSet = NodeService.FindPortSet(node.Port);
             var (portStatus, closedPorts) = NodeService.CheckPortSet(node, nodePortSet);
@@ -19,8 +24,13 @@ public static class NodeChecker
 
             /// checking api status
             var nodeStatus = NodeService.GetNodeStatus(node);
-            node.LastCheckDateTime = DateTime.UtcNow;
-            node.LastStatus = nodeStatus;
+            var checkDateTime = DateTime.UtcNow;
+            node.LastCheckDateTime = checkDateTime;
+            if (node.LastStatus != nodeStatus)
+            {
+                node.LastStatus = nodeStatus;
+                node.LastStatusDateTime = checkDateTime;
+            }
 
             /// check node version
             var nodeVersion = NodeService.GetNodeVersion(node);
@@ -42,6 +52,20 @@ public static class NodeChecker
         }
 
         Database.DefaultInstance.Users.Update(user);
+    }
+
+    public static bool ShouldSkipNodeCheck(Node node)
+    {
+        // Skips exponentially
+        // -----(last status)--------------(last check)-------------(now)------------------(now + (last check - last status))
+        if (node.LastStatus == NodeStatus.NotReachable &&
+            node.LastStatusDateTime.HasValue &&
+            DateTime.UtcNow - node.LastCheckDateTime <= node.LastCheckDateTime - node.LastStatusDateTime)
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private static async Task NotifyUser(User user, Node node)

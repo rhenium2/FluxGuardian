@@ -30,7 +30,9 @@ public static class CommandService
         text.AppendLine(
             $"Type {CommandNotation(context, "addnode")} to add a new node for me to monitor. At any point if you are stuck, type {CommandNotation(context, "start")} and you can start fresh.");
         text.AppendLine($"Type {CommandNotation(context, "help")} to show all supported commands");
-        text.AppendLine($"currently, you can add up to {Constants.MaximumNodeCount} nodes");
+        text.AppendLine($"Currently, you can add up to {Constants.MaximumNodeCount} nodes");
+        text.AppendLine();
+        text.AppendLine("Support Discord server: https://discord.gg/5H2qxcBk");
 
         SendMessage(context, text.ToString());
     }
@@ -142,6 +144,10 @@ public static class CommandService
         {
             return;
         }
+        else
+        {
+            UserService.ResetActiveCommand(user);
+        }
 
         if (user.Nodes.Count == 0)
         {
@@ -150,16 +156,19 @@ public static class CommandService
             return;
         }
 
+
         var builder = new StringBuilder();
         builder.AppendLine("* Nodes Status *");
         builder.AppendLine();
 
         foreach (var node in user.Nodes)
         {
+            var nodeDisabledText = NodeChecker.ShouldSkipNodeCheck(node) ? $"(disabled temporarily)" : "";
             var nodePortSet = Constants.FluxPortSets[node.Port];
             var nodeIcon = node.LastStatus == NodeStatus.Confirmed && !node.ClosedPorts.Any() ? "🟢" : "🔴";
             builder.AppendLine($"{nodeIcon} *{node.ToIPAndPortText()}*");
-            builder.AppendLine($"status: *{node.LastStatus}* ({node.LastCheckDateTime?.ToRelativeText()})");
+            builder.AppendLine(
+                $"status: *{node.LastStatus}* ({node.LastCheckDateTime?.ToRelativeText()}) {nodeDisabledText}");
             builder.AppendLine($"version: v{node.FluxVersion}");
             if (node.ClosedPorts.Any())
             {
@@ -176,6 +185,7 @@ public static class CommandService
         }
 
         builder.AppendLine("FluxGuardian bot 🤖");
+        builder.AppendLine("Support Discord server: https://discord.gg/5H2qxcBk");
         SendMessage(context, builder.ToString());
     }
 
@@ -186,6 +196,10 @@ public static class CommandService
         if (user is null)
         {
             return;
+        }
+        else
+        {
+            UserService.ResetActiveCommand(user);
         }
 
         var builder = new StringBuilder();
@@ -388,22 +402,31 @@ public static class CommandService
         }
     }
 
+    public static void HandleAdminAddNodeCommand(CommandContext context)
+    {
+        var user = UserService.FindUser(context);
+
+        if (!IsModeratorContext(context))
+        {
+            return;
+        }
+
+        if (user is null)
+        {
+            return;
+        }
+
+        var ip = (context.Message.Split(' ')[1].Trim());
+        var port = Convert.ToInt32(context.Message.Split(' ')[2].Trim());
+        UserService.AddNode(user, ip, port);
+        SendMessage(context, "node added.");
+    }
+
     #endregion
 
     private static void SendMessage(CommandContext context, string message)
     {
-        //var user = UserService.FindUser(context);
         Notifier.NotifyContext(context, message);
-
-        // if (context.ContextKind == ContextKind.Telegram)
-        // {
-        //     context.TelegramClient.SendMessage(Convert.ToInt64(context.UserId), message);
-        // }
-        //
-        // if (context.ContextKind == ContextKind.Discord)
-        // {
-        //     context.DiscordClient.SendMessage(context.DiscordChannel, message);
-        // }
     }
 
     private static bool IsModeratorContext(CommandContext context)
