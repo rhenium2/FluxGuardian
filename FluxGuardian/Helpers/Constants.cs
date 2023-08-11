@@ -8,6 +8,8 @@ public class Constants
 
     public static FluxPortSet DefaultPortSet = new FluxPortSet(16126, 16127, 16129);
 
+    public static string SupportUrl = "https://forms.gle/AbpKaeaLmBGMtoFCA";
+
     public static Dictionary<int, FluxPortSet> FluxPortSets = new Dictionary<int, FluxPortSet>(new[]
     {
         new KeyValuePair<int, FluxPortSet>(16126, DefaultPortSet),

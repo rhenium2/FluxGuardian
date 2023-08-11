@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Text;
 using FluxGuardian.Data;
 using FluxGuardian.Helpers;
@@ -32,7 +31,7 @@ public static class CommandService
         text.AppendLine($"Type {CommandNotation(context, "help")} to show all supported commands");
         text.AppendLine($"Currently, you can add up to {Constants.MaximumNodeCount} nodes");
         text.AppendLine();
-        text.AppendLine("Support Discord server: https://discord.gg/5H2qxcBk");
+        text.AppendLine($"Support: {Constants.SupportUrl}");
 
         SendMessage(context, text.ToString());
     }
@@ -185,7 +184,7 @@ public static class CommandService
         }
 
         builder.AppendLine("FluxGuardian bot 🤖");
-        builder.AppendLine("Support Discord server: https://discord.gg/5H2qxcBk");
+        builder.AppendLine($"Support: {Constants.SupportUrl}");
         SendMessage(context, builder.ToString());
     }
 
